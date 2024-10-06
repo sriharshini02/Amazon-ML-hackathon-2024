@@ -1,141 +1,45 @@
-# ML Challenge Problem Statement
+## Code Explanation for the Problem Statement
+In this project, the goal is to develop a machine learning solution that extracts product entity values (like weight, volume, and dimensions) from product images. The extracted values are crucial in digital marketplaces, especially when product descriptions are incomplete. The challenge is to predict the correct entity value for each image in the provided dataset. Below is an explanation of how my code addresses the problem statement:
 
-## Feature Extraction from Images
+# 1. Setup and Imports
+The code begins by importing various libraries required for handling images, machine learning, and preprocessing. Key libraries include:
 
-In this hackathon, the goal is to create a machine learning model that extracts entity values from images. This capability is crucial in fields like healthcare, e-commerce, and content moderation, where precise product information is vital. As digital marketplaces expand, many products lack detailed textual descriptions, making it essential to obtain key details directly from images. These images provide important information such as weight, volume, voltage, wattage, dimensions, and many more, which are critical for digital stores.
+pytesseract for Optical Character Recognition (OCR) to extract text from images.
+cv2 (OpenCV) for image preprocessing.
+torch and torchvision for handling transformations and pre-trained models (although not used in this iteration).
+pandas, sklearn, and re for data handling, text processing, and regex operations.
+# 2. Unit Mapping
+The entity_unit_map and unit_normalization dictionaries define the allowed units for each entity type (e.g., weight in grams, dimensions in centimeters) and provide normalization for abbreviations like "cm" to "centimetre." These mappings ensure that only valid units are extracted from the images.
 
-### Data Description: 
+# 3. Image Downloading and Preprocessing
+The download_image function downloads images from the URLs provided in the dataset and saves them to a temporary folder. The preprocess_image function applies grayscale conversion to the images to improve OCR accuracy by simplifying the image content before text extraction.
 
-The dataset consists of the following columns: 
+# 4. Text Extraction from Images
+The core task of extracting text from images is performed by the extract_text_from_image function. It uses Tesseract OCR, which reads the text embedded within the image after preprocessing. The extracted text is then passed to further functions for unit extraction and matching.
 
-1. **index:** An unique identifier (ID) for the data sample
-2. **image_link**: Public URL where the product image is available for download. Example link - https://m.media-amazon.com/images/I/71XfHPR36-L.jpg
-    To download images use `download_images` function from `src/utils.py`. See sample code in `src/test.ipynb`.
-3. **group_id**: Category code of the product
-4. **entity_name:** Product entity name. For eg: “item_weight” 
-5. **entity_value:** Product entity value. For eg: “34 gram” 
-    Note: For test.csv, you will not see the column `entity_value` as it is the target variable.
+# 5. Unit Normalization and Matching
+The normalize_unit function uses regular expressions to extract numerical values and their associated units from the text. If the extracted unit matches an allowed unit (as defined in allowed_units), the value and unit are returned in a normalized form (e.g., "2.5 kg" → "2.5 kilogram"). The match_units function checks if the extracted text contains valid entities and units, and if so, returns the normalized result. Otherwise, an empty string is returned.
 
-### Output Format:
+# 6. Data Preparation
+The prepare_data function processes the training data by downloading images, extracting text from them, and mapping each text to the target entity_value from the dataset. This data is used to train the model.
 
-The output file should be a csv with 2 columns:
+# 7. Model Training
+The train_model function constructs a machine learning pipeline that includes a CountVectorizer (to convert the extracted text into numerical features) and LogisticRegression (a classification model to predict the correct entity value). It splits the data into training and testing sets using train_test_split, trains the model, and reports the accuracy on the test set.
 
-1. **index:** The unique identifier (ID) of the data sample. Note the index should match the test record index.
-2. **prediction:** A string which should have the following format: “x unit” where x is a float number in standard formatting and unit is one of the allowed units (allowed units are mentioned in the Appendix). The two values should be concatenated and have a space between them. For eg: “2 gram”, “12.5 centimetre”, “2.56 ounce” are valid. Few invalid cases: “2 gms”, “60 ounce/1.7 kilogram”, “2.2e2 kilogram” etc.
-    Note: Make sure to output a prediction for all indices. If no value is found in the image for any test sample, return empty string, i.e, `“”`. If you have less/more number of output samples in the output file as compared to test.csv, your output won’t be evaluated. 
+# 8. Generating Predictions
+The generate_predictions function processes the test dataset, downloading images and extracting text as described previously. It then applies the trained model to predict the entity_value for each image and compares it against the allowed units for the respective entity_name. The results are stored in a CSV file following the required format.
 
-### File Descriptions:
+# 9. Output Format
+The output file contains two columns: index (from the test dataset) and prediction (the predicted entity value in the format value unit). If no valid entity is extracted, an empty string is returned.
 
-*source files*
+# 10. Code Execution
+Finally, the script is executed by calling:
 
-1. **src/sanity.py**: Sanity checker to ensure that the final output file passes all formatting checks. Note: the script will not check if less/more number of predictions are present compared to the test file. See sample code in `src/test.ipynb` 
-2. **src/utils.py**: Contains helper functions for downloading images from the image_link.
-3. **src/constants.py:** Contains the allowed units for each entity type.
-4. **sample_code.py:** We also provided a sample dummy code that can generate an output file in the given format. Usage of this file is optional. 
-
-*Dataset files*
-
-1. **dataset/train.csv**: Training file with labels (`entity_value`).
-2. **dataset/test.csv**: Test file without output labels (`entity_value`). Generate predictions using your model/solution on this file's data and format the output file to match sample_test_out.csv (Refer the above section "Output Format")
-3. **dataset/sample_test.csv**: Sample test input file.
-4. **dataset/sample_test_out.csv**: Sample outputs for sample_test.csv. The output for test.csv must be formatted in the exact same way. Note: The predictions in the file might not be correct
-
-### Constraints
-
-1. You will be provided with a sample output file and a sanity checker file. Format your output to match the sample output file exactly and pass it through the sanity checker to ensure its validity. Note: If the file does not pass through the sanity checker, it will not be evaluated. You should recieve a message like `Parsing successfull for file: ...csv` if the output file is correctly formatted.
-
-2. You are given the list of allowed units in constants.py and also in Appendix. Your outputs must be in these units. Predictions using any other units will be considered invalid during validation.
-
-### Evaluation Criteria
-
-Submissions will be evaluated based on F1 score, which are standard measures of prediction accuracy for classification and extraction problems.
-
-Let GT = Ground truth value for a sample and OUT be output prediction from the model for a sample. Then we classify the predictions into one of the 4 classes with the following logic: 
-
-1. *True Positives* - If OUT != `""` and GT != `""` and OUT == GT
-2. *False Positives* - If OUT != `""` and GT != `""` and OUT != GT
-3. *False Positives* - If OUT != `""` and GT == `""`
-4. *False Negatives* - If OUT == `""` and GT != `""`
-5. *True Negatives* - If OUT == `""` and GT == `""` 
-
-Then, F1 score = 2*Precision*Recall/(Precision + Recall) where:
-
-1. Precision = True Positives/(True Positives + False Positives)
-2. Recall = True Positives/(True Positives + False Negatives)
-
-### Submission File
-
-Upload a test_out.csv file in the Portal with the exact same formatting as sample_test_out.csv
-
-### Appendix
-
-```
-entity_unit_map = {
-  "width": {
-    "centimetre",
-    "foot",
-    "millimetre",
-    "metre",
-    "inch",
-    "yard"
-  },
-  "depth": {
-    "centimetre",
-    "foot",
-    "millimetre",
-    "metre",
-    "inch",
-    "yard"
-  },
-  "height": {
-    "centimetre",
-    "foot",
-    "millimetre",
-    "metre",
-    "inch",
-    "yard"
-  },
-  "item_weight": {
-    "milligram",
-    "kilogram",
-    "microgram",
-    "gram",
-    "ounce",
-    "ton",
-    "pound"
-  },
-  "maximum_weight_recommendation": {
-    "milligram",
-    "kilogram",
-    "microgram",
-    "gram",
-    "ounce",
-    "ton",
-    "pound"
-  },
-  "voltage": {
-    "millivolt",
-    "kilovolt",
-    "volt"
-  },
-  "wattage": {
-    "kilowatt",
-    "watt"
-  },
-  "item_volume": {
-    "cubic foot",
-    "microlitre",
-    "cup",
-    "fluid ounce",
-    "centilitre",
-    "imperial gallon",
-    "pint",
-    "decilitre",
-    "litre",
-    "millilitre",
-    "quart",
-    "cubic inch",
-    "gallon"
-  }
-}
-```
+train_model to train the model using the training data.
+generate_predictions to predict entity values for the test dataset and save the results to a CSV file.
+How the Code Aligns with the Problem Statement
+Text Extraction: The use of pytesseract ensures text is accurately extracted from the provided product images.
+Unit Matching: The mapping of allowed units ensures that the predicted values follow the problem constraints.
+Model Training: A machine learning pipeline is used to predict the correct entity values based on the extracted text, ensuring generalization on unseen test data.
+Output Formatting: The final predictions are formatted according to the required structure and saved to a CSV file that can be evaluated using the provided sanity checker.
+The code, therefore, addresses the challenge of extracting and normalizing textual information from images to predict important product attributes in a structured and accurate manner.
